@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Czy to już za późno?</title>
+
+<style>
+body {
+  margin: 0;
+  height: 100vh;
+  background: radial-gradient(circle at top, #111, #000);
+  color: #e0e0e0;
+  font-family: monospace;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.container {
+  text-align: center;
+  width: 800px;
+}
+
+#clock {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 120px;
+  gap: 10px;
+  color: #00ffcc;
+  text-shadow: 0 0 25px rgba(0,255,204,.5);
+}
+
+.blink {
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+#quote {
+  font-size: 22px;
+  margin: 30px 0;
+  opacity: .85;
+}
+
+#wasted {
+  font-size: 15px;
+  opacity: .6;
+  margin-bottom: 30px;
+}
+
+button {
+  background: transparent;
+  border: 2px solid #333;
+  color: #aaa;
+  padding: 14px 28px;
+  margin: 6px;
+  cursor: pointer;
+  transition: .2s;
+}
+button:hover {
+  border-color: #00ffcc;
+  color: #00ffcc;
+  transform: scale(1.05);
+}
+
+input[type="date"] {
+  background: #000;
+  color: #00ffcc;
+  border: 1px solid #333;
+  padding: 10px;
+  font-family: monospace;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>Czy to już za późno na ogarnięcie życia?</h1>
+
+<div id="birthBox">
+  <p>Podaj datę urodzenia (dla statystyk porażki):</p>
+  <input type="date" id="birthInput">
+  <br><br>
+  <button onclick="saveBirth()">zatwierdź wyrok</button>
+</div>
+
+<div id="clock">
+  <span id="h">00</span><span class="blink">:</span>
+  <span id="m">00</span><span class="blink">:</span>
+  <span id="s">00</span>
+</div>
+
+<div id="quote"></div>
+<div id="wasted"></div>
+
+<button onclick="newQuote()">oszukaj się jeszcze raz</button>
+<button onclick="toggleTick()">tykanie rzeczywistości</button>
+
+</div>
+
+<script>
+/* ===== ZEGAR ===== */
+const h = document.getElementById("h");
+const m = document.getElementById("m");
+const s = document.getElementById("s");
+
+setInterval(() => {
+  const d = new Date();
+  h.textContent = String(d.getHours()).padStart(2, "0");
+  m.textContent = String(d.getMinutes()).padStart(2, "0");
+  s.textContent = String(d.getSeconds()).padStart(2, "0");
+  updateWasted();
+}, 1000);
+
+/* ===== TEKSTY ===== */
+const quote = document.getElementById("quote");
+const quotes = [
+  "Nie, nadal nic nie osiągnąłeś. Miłego dnia.",
+  "Spokojnie, jeszcze masz czas. Ale już mniej niż wczoraj.",
+  "To nie zmęczenie. To życie.",
+  "Motywacja nie zniknęła. Nigdy jej nie było.",
+  "Możesz wszystko. Ale nie robisz nic.",
+  "Jeszcze jeden dzień niczego nie zmieni. Klasyka."
+];
+
+function newQuote() {
+  quote.textContent = quotes[Math.floor(Math.random() * quotes.length)];
+}
+newQuote();
+
+/* ===== MECHANICZNE TYKANIE ===== */
+let audioCtx = null;
+let tickInterval = null;
+
+function playTick() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  const t = audioCtx.currentTime;
+
+  // klik
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(1100, t);
+
+  gain.gain.setValueAtTime(0.2, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(t);
+  osc.stop(t + 0.03);
+
+  // delikatny szum mechanizmu
+  const bufferSize = audioCtx.sampleRate * 0.02;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.15;
+  }
+
+  const noise = audioCtx.createBufferSource();
+  const noiseGain = audioCtx.createGain();
+  noise.buffer = buffer;
+
+  noiseGain.gain.setValueAtTime(0.04, t);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+
+  noise.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+
+  noise.start(t);
+  noise.stop(t + 0.02);
+}
+
+function toggleTick() {
+  if (tickInterval) {
+    clearInterval(tickInterval);
+    tickInterval = null;
+    return;
+  }
+  playTick();
+  tickInterval = setInterval(playTick, 1000);
+}
+
+/* ===== ZMARNOWANE DNI ===== */
+const birthInput = document.getElementById("birthInput");
+const birthBox = document.getElementById("birthBox");
+const wasted = document.getElementById("wasted");
+
+function saveBirth() {
+  if (!birthInput.value) return;
+  localStorage.setItem("birthDate", birthInput.value);
+  birthBox.style.display = "none";
+  updateWasted();
+}
+
+function updateWasted() {
+  const birth = localStorage.getItem("birthDate");
+  if (!birth) return;
+
+  const birthDate = new Date(birth);
+  const now = new Date();
+  const days = Math.floor((now - birthDate) / 86400000);
+
+  wasted.textContent =
+    `Zmarnowane dni od urodzenia: ${days.toLocaleString()}`;
+}
+
+if (localStorage.getItem("birthDate")) {
+  birthBox.style.display = "none";
+  updateWasted();
+}
+</script>
+
+</body>
+</html>
